@@ -7,7 +7,7 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 import urllib.parse
 
 # Your Telegram Bot Token
-TOKEN = '8773284530:AAHppX00YY5GM-Aqa_SYOhY3fd-PLgFO6aI'
+TOKEN = '8773284530:AAGBvJh23K7oITP0xlaNyyXDo0wmLEdpR8w'
 bot = telebot.TeleBot(TOKEN)
 
 # Your Personal Telegram Username
@@ -75,7 +75,7 @@ def analyze_tinder_profile(message):
         script = soup.find('script', id='__NEXT_DATA__')
 
         display_name = "Unknown"
-        gender = "Female 👧"  # Default / Extracted gender
+        gender = "Female 👧"
         birth_date = "1989-09-12"
         user_age = "36 years"
         photos_count = 1
@@ -98,7 +98,7 @@ def analyze_tinder_profile(message):
                 user_id = user_data.get('_id', user_id)
                 is_verified = user_data.get('is_verified', is_verified)
 
-                # Parse Gender (0 = Male, 1 = Female in Tinder API)
+                # Parse Gender (0 = Male, 1 = Female)
                 gender_code = user_data.get('gender', 1)
                 if gender_code == 0:
                     gender = "Male 👦"
@@ -141,7 +141,6 @@ def analyze_tinder_profile(message):
 
         verification_text = "Verified" if is_verified else "Not Verified"
 
-        # Main Report Layout (Matching your Screenshot)
         reply_text = (
             f"🔥 *Tinder scan bot result* 🔮\n\n"
             f"🟢 *Active Account*\n\n"
@@ -160,7 +159,6 @@ def analyze_tinder_profile(message):
             f"✅ *Analysis Complete*"
         )
 
-        # Pre-filled deal text sent directly to @MinteHub
         trade_text = (
             f"Account Details:\n"
             f"👤 Gender: {gender}\n"
@@ -170,11 +168,9 @@ def analyze_tinder_profile(message):
             f"Tell me the price 💰"
         )
 
-        # Encode pre-filled text for Telegram link
         encoded_trade_text = urllib.parse.quote(trade_text)
         direct_inbox_url = f"https://t.me/{YOUR_TELEGRAM_USERNAME}?text={encoded_trade_text}"
 
-        # Inline Keyboard
         markup = InlineKeyboardMarkup(row_width=1)
         sell_button = InlineKeyboardButton(
             text="🏷 Sell This Account", url=direct_inbox_url
@@ -205,5 +201,5 @@ def analyze_tinder_profile(message):
         bot.reply_to(message, f"⚠️ Error processing profile: {str(e)}")
 
 
-print("Bot is running on your phone...")
+print("Bot is running...")
 bot.infinity_polling()

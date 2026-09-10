@@ -1,10 +1,20 @@
-from datetime import datetime
+import os
 import json
+import threading
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 import urllib.parse
+from flask import Flask
+
+# Flask App for Render Port Binding
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Tinder Scan Bot is Live 24/7!"
 
 # Your Telegram Bot Token
 TOKEN = '8773284530:AAGBvJh23K7oITP0xlaNyyXDo0wmLEdpR8w'
@@ -13,19 +23,13 @@ bot = telebot.TeleBot(TOKEN)
 # Your Personal Telegram Username
 YOUR_TELEGRAM_USERNAME = 'MinteHub'
 
-# Optional: Tinder X-Auth-Token
-TINDER_AUTH_TOKEN = ''
-
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept-Language': 'en-US,en;q=0.9',
 }
-if TINDER_AUTH_TOKEN:
-    HEADERS['X-Auth-Token'] = TINDER_AUTH_TOKEN
-
 
 def calculate_account_age(created_dt):
-    """Calculates age relative to current date (Years, Months, Days)."""
+    """Calculates age relative to current date."""
     now = datetime.now()
     diff = now - created_dt
     days = diff.days
@@ -34,14 +38,12 @@ def calculate_account_age(created_dt):
     rem_days = (days % 365) % 30
     return f"{years}y {months}m {rem_days}d"
 
-
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(
         message,
         "👋 Welcome! Send me a Tinder username (e.g. 'tsega28') to generate a full analysis report.",
     )
-
 
 @bot.message_handler(func=lambda message: True)
 def analyze_tinder_profile(message):
@@ -75,14 +77,14 @@ def analyze_tinder_profile(message):
         script = soup.find('script', id='__NEXT_DATA__')
 
         display_name = "Unknown"
-        gender = "Female 👧"
-        birth_date = "1989-09-12"
-        user_age = "36 years"
-        photos_count = 1
-        created_time_str = "2023-07-30 20:44:27"
-        account_age_str = "3y 1m 26d"
-        user_id = "64c6cbabad98380100c14c99"
-        is_verified = True
+        gender = "Unknown ❓"
+        birth_date = "N/A"
+        user_age = "Unknown"
+        photos_count = 0
+        created_time_str = "N/A"
+        account_age_str = "N/A"
+        user_id = "Hidden"
+        is_verified = False
         photos = []
 
         if script and script.string:
@@ -96,13 +98,12 @@ def analyze_tinder_profile(message):
 
                 display_name = user_data.get('name', display_name)
                 user_id = user_data.get('_id', user_id)
-                is_verified = user_data.get('is_verified', is_verified)
+                is_verified = user_data.get('is_verified', False)
 
-                # Parse Gender (0 = Male, 1 = Female)
-                gender_code = user_data.get('gender', 1)
+                gender_code = user_data.get('gender', -1)
                 if gender_code == 0:
                     gender = "Male 👦"
-                else:
+                elif gender_code == 1:
                     gender = "Female 👧"
 
                 raw_photos = user_data.get('photos', [])
@@ -111,9 +112,7 @@ def analyze_tinder_profile(message):
 
                 birth_date_raw = user_data.get('birth_date', '')
                 if birth_date_raw:
-                    b_dt = datetime.strptime(
-                        birth_date_raw.split('T')[0], '%Y-%m-%d'
-                    )
+                    b_dt = datetime.strptime(birth_date_raw.split('T')[0], '%Y-%m-%d')
                     birth_date = b_dt.strftime('%Y-%m-%d')
                     calc_age = datetime.now().year - b_dt.year
                     user_age = f"{calc_age} years"
@@ -129,15 +128,22 @@ def analyze_tinder_profile(message):
 
             except Exception:
                 pass
-        else:
+
+        # Meta Fallback Parsing if NEXT_DATA is empty
+        if user_age == "Unknown" or display_name == "Unknown":
             og_title = soup.find('meta', property='og:title')
             if og_title and og_title.get('content'):
-                display_name = og_title['content'].split(' ')[0]
+                title_text = og_title['content']
+                display_name = title_text.split(',')[0].strip()
+                # Parse age from OG Title format: "Name, 24"
+                if ',' in title_text:
+                    possible_age = title_text.split(',')[1].strip().split(' ')[0]
+                    if possible_age.isdigit():
+                        user_age = f"{possible_age} years"
 
             og_images = soup.find_all('meta', property='og:image')
             photos = [img['content'] for img in og_images if img.get('content')]
-            if photos:
-                photos_count = len(photos)
+            photos_count = len(photos)
 
         verification_text = "Verified" if is_verified else "Not Verified"
 
@@ -200,6 +206,15 @@ def analyze_tinder_profile(message):
     except Exception as e:
         bot.reply_to(message, f"⚠️ Error processing profile: {str(e)}")
 
+def run_bot():
+    bot.infinity_polling()
 
-print("Bot is running...")
-bot.infinity_polling()
+if __name__ == '__main__':
+    # Start bot in background thread
+    threading.Thread(target=run_bot, daemon=True).start()
+    
+    # Run Flask server for Render on bound PORT
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+        
